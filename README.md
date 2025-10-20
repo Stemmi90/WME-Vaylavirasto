@@ -59,7 +59,7 @@ Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen data
 
 ## Lisenssi
 
-Tämä projekti on avoimen lähdekoodin projekti. Käytä vapaasti ja muokkaa tarpeidesi mukaan.
+MIT License - Käytä vapaasti ja muokkaa tarpeidesi mukaan.
 
 ## Tekijä
 
