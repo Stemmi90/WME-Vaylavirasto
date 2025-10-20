@@ -5,6 +5,7 @@
 // @description  Suomen Väyläviraston WMS‑tasot Waze Map Editoria varten
 // @author       Stemmi
 // @match        https://*.waze.com/*editor*
+// @license      MIT
 // ==/UserScript==
 
 (function () {
