@@ -68,7 +68,7 @@ MIT License - Käytä vapaasti ja muokkaa tarpeidesi mukaan.
 ## Tietolähde
 
 Tiedot ovat peräisin Väyläviraston avoimesta datasta:
-- [Rajapinnat - Väylävirasto]([https://avoinapi.vaylapilvi.fi/](https://vayla.fi/vaylista/aineistot/avoindata/rajapinnat))
+- [Rajapinnat - Väylävirasto]([https://avoinapi.vaylapilvi.fi/](https://vayla.fi/vaylista/aineistot/avoindata/rajapinnat)
 - [Digiroad-tietokanta](https://www.digiroad.fi/)
 
 ## Changelog
