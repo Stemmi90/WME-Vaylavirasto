@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         WME Väylävirasto
 // @namespace    https://waze.com
-// @version      1.2
+// @version      1.3
 // @description  Suomen Väyläviraston WMS‑tasot Waze Map Editoria varten
 // @author       Stemmi
 // @match        https://*.waze.com/*editor*
 // @license      MIT
+// @downloadURL https://update.greasyfork.org/scripts/553221/WME%20V%C3%A4yl%C3%A4virasto.user.js
+// @updateURL https://update.greasyfork.org/scripts/553221/WME%20V%C3%A4yl%C3%A4virasto.meta.js
 // ==/UserScript==
 
 (function () {
@@ -60,6 +62,24 @@
                 {
                     name: 'Nopeusrajoituspäätökset',
                     layerId: 'tiestotiedot:nopeusrajoituspaatokset',
+                    visible: false,
+                    opacity: 0.8
+                },
+                {
+                    name: 'Solmu (Digiroad)',
+                    layerId: 'digiroad:dr_solmu',
+                    visible: false,
+                    opacity: 0.8
+                },
+                {
+                    name: 'Tielinkin tyyppi (Digiroad)',
+                    layerId: 'digiroad:dr_tielinkki_tielinkin_tyyppi',
+                    visible: false,
+                    opacity: 0.8
+                },
+                {
+                    name: 'Tiekunnalliset yksityistiet',
+                    layerId: 'digiroad:tiekunnalliset_yksityistiet',
                     visible: false,
                     opacity: 0.8
                 }
