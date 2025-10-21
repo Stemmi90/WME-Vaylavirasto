@@ -66,13 +66,13 @@
                     opacity: 0.8
                 },
                 {
-                    name: 'Solmu (Digiroad)',
+                    name: 'Solmu',
                     layerId: 'digiroad:dr_solmu',
                     visible: false,
                     opacity: 0.8
                 },
                 {
-                    name: 'Tielinkin tyyppi (Digiroad)',
+                    name: 'Tielinkin tyyppi',
                     layerId: 'digiroad:dr_tielinkki_tielinkin_tyyppi',
                     visible: false,
                     opacity: 0.8
@@ -383,3 +383,4 @@
     console.log('WME Väylävirasto: Starting userscript...');
     init();
 })();
+
