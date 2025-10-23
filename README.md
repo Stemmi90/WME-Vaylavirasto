@@ -20,6 +20,8 @@ Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen data
 - 🇫🇮 -painike kartan vasemmassa yläkulmassa
 - Vedettävä ja siirrettävä käyttöliittymä
 - Yksinkertainen checkbox-pohjainen tasojen hallinta
+- ℹ️ -painike jokaisen tason vieressä selitteen näyttämiseen
+- Kelluva selite-ikkuna WMS-legendoille
 - Ennalta määritetyt läpinäkyvyysarvot tasoille
 
 ## Asennus
@@ -34,15 +36,17 @@ Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen data
 2. Odota että skripti latautuu (näet konsoli-viestejä)
 3. Klikkaa 🇫🇮 -painiketta avataksesi tasovalikon
 4. Valitse haluamasi tasot checkboxeilla
-5. Vedä painiketta siirtääksesi käyttöliittymää
+5. Klikkaa ℹ️ -painiketta nähdäksesi tason selitteen
+6. Vedä painiketta tai selite-ikkunoita siirtääksesi niitä
 
 ## Tekniset tiedot
 
-- **Versio:** 1.2
+- **Versio:** 1.4
 - **Tietolähde:** Väylävirasto Avoin API
 - **WMS-palvelu:** https://avoinapi.vaylapilvi.fi/vaylatiedot/wms
 - **Koordinaattijärjestelmä:** EPSG:3857 (Web Mercator)
 - **Kuvaformaatti:** PNG (läpinäkyvä)
+- **Selitteet:** WMS GetLegendGraphic -pyyntöjen kautta
 
 ## Vianmääritys
 
@@ -68,10 +72,20 @@ MIT License - Käytä vapaasti ja muokkaa tarpeidesi mukaan.
 ## Tietolähde
 
 Tiedot ovat peräisin Väyläviraston avoimesta datasta:
-- [Rajapinnat - Väylävirasto](https://vayla.fi/vaylista/aineistot/avoindata/rajapinnat)
+- [Väylävirasto Avoin API](https://avoinapi.vaylapilvi.fi/)
 - [Digiroad-tietokanta](https://www.digiroad.fi/)
 
 ## Changelog
+
+### v1.4
+- Lisätty selite-toiminnallisuus (ℹ️ -painike)
+- Kelluva selite-ikkuna WMS-legendoille
+- Vedettävät selite-ikkunat
+- Parannettu käyttöliittymä tasojen hallintaan
+
+### v1.3
+- Lisätty selite-painikkeet tasoille
+- Parannettu käyttökokemus
 
 ### v1.2
 - Parannettu virheenkäsittely
