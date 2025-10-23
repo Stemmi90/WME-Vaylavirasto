@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Väylävirasto
 // @namespace    https://waze.com
-// @version      1.3
+// @version      1.4
 // @description  Suomen Väyläviraston WMS‑tasot Waze Map Editoria varten
 // @author       Stemmi
 // @match        https://*.waze.com/*editor*
@@ -33,13 +33,13 @@
                     name: 'Liikennemäärät 2023',
                     layerId: 'tiestotiedot:liikennemaarat_2023',
                     visible: false,
-                    opacity: 0.7
+                    opacity: 0.9
                 },
                 {
                     name: 'Nopeusrajoitukset',
                     layerId: 'digiroad:dr_nopeusrajoitus',
                     visible: false,
-                    opacity: 0.8
+                    opacity: 0.9
                 },
                 {
                     name: 'Liikennemerkit',
@@ -51,37 +51,37 @@
                     name: 'Päällystetyt tiet',
                     layerId: 'digiroad:dr_paallystetty_tie',
                     visible: false,
-                    opacity: 0.7
+                    opacity: 0.9
                 },
                 {
                     name: 'Talvinopeusrajoitus',
                     layerId: 'digiroad:dr_talvinopeusrajoitus',
                     visible: false,
-                    opacity: 0.8
+                    opacity: 0.9
                 },
                 {
                     name: 'Nopeusrajoituspäätökset',
                     layerId: 'tiestotiedot:nopeusrajoituspaatokset',
                     visible: false,
-                    opacity: 0.8
+                    opacity: 0.9
                 },
                 {
                     name: 'Solmu',
                     layerId: 'digiroad:dr_solmu',
                     visible: false,
-                    opacity: 0.8
+                    opacity: 0.9
                 },
                 {
                     name: 'Tielinkin tyyppi',
                     layerId: 'digiroad:dr_tielinkki_tielinkin_tyyppi',
                     visible: false,
-                    opacity: 0.8
+                    opacity: 0.9
                 },
                 {
                     name: 'Tiekunnalliset yksityistiet',
                     layerId: 'digiroad:tiekunnalliset_yksityistiet',
                     visible: false,
-                    opacity: 0.8
+                    opacity: 0.9
                 }
             ]
         };
@@ -154,6 +154,143 @@
         console.log('• Some layers only visible at certain zoom levels');
         console.log('• Check Network tab (F12) if layers don\'t appear');
         console.log('• Look for tile URLs like: ...wms?SERVICE=WMS&...');
+    }
+
+    function openLegendWindow(layerConfig) {
+        var legendUrl = 'https://avoinapi.vaylapilvi.fi/vaylatiedot/ows?service=WMS&version=1.3.0&request=GetLegendGraphic&format=image/png&layer=' + layerConfig.layerId;
+        
+        // Check if window already exists for this layer
+        var windowId = 'legend-' + layerConfig.layerId.replace(/[^a-zA-Z0-9]/g, '-');
+        var existingWindow = document.getElementById(windowId);
+        
+        if (existingWindow) {
+            // Bring existing window to front
+            existingWindow.style.zIndex = '10001';
+            return;
+        }
+
+        // Create floatable legend window
+        var legendWindow = document.createElement('div');
+        legendWindow.id = windowId;
+        legendWindow.style.position = 'fixed';
+        legendWindow.style.top = '200px';
+        legendWindow.style.left = '500px';
+        legendWindow.style.background = 'white';
+        legendWindow.style.border = '2px solid #0052A5';
+        legendWindow.style.borderRadius = '8px';
+        legendWindow.style.zIndex = '10001';
+        legendWindow.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+        legendWindow.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        legendWindow.style.minWidth = '200px';
+        legendWindow.style.maxWidth = '400px';
+
+        // Create header with title and close button
+        var header = document.createElement('div');
+        header.style.background = '#0052A5';
+        header.style.color = 'white';
+        header.style.padding = '8px 12px';
+        header.style.borderRadius = '6px 6px 0 0';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.cursor = 'move';
+        header.style.userSelect = 'none';
+
+        var title = document.createElement('span');
+        title.textContent = 'Selite: ' + layerConfig.name;
+        title.style.fontSize = '14px';
+        title.style.fontWeight = 'bold';
+
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.background = 'none';
+        closeBtn.style.border = 'none';
+        closeBtn.style.color = 'white';
+        closeBtn.style.fontSize = '16px';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.style.padding = '0';
+        closeBtn.style.width = '20px';
+        closeBtn.style.height = '20px';
+        closeBtn.style.borderRadius = '50%';
+        closeBtn.style.display = 'flex';
+        closeBtn.style.alignItems = 'center';
+        closeBtn.style.justifyContent = 'center';
+
+        closeBtn.addEventListener('mouseenter', function () {
+            this.style.background = 'rgba(255,255,255,0.2)';
+        });
+
+        closeBtn.addEventListener('mouseleave', function () {
+            this.style.background = 'none';
+        });
+
+        closeBtn.addEventListener('click', function () {
+            legendWindow.remove();
+        });
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        // Create content area
+        var content = document.createElement('div');
+        content.style.padding = '12px';
+        content.style.textAlign = 'center';
+
+        var loadingText = document.createElement('div');
+        loadingText.textContent = 'Ladataan selitettä...';
+        loadingText.style.color = '#666';
+        loadingText.style.fontSize = '13px';
+        content.appendChild(loadingText);
+
+        // Create image element
+        var legendImg = document.createElement('img');
+        legendImg.src = legendUrl;
+        legendImg.style.maxWidth = '100%';
+        legendImg.style.height = 'auto';
+        legendImg.style.display = 'none';
+
+        legendImg.addEventListener('load', function () {
+            loadingText.style.display = 'none';
+            this.style.display = 'block';
+        });
+
+        legendImg.addEventListener('error', function () {
+            loadingText.textContent = 'Selitettä ei voitu ladata';
+            loadingText.style.color = '#d32f2f';
+            console.warn('Failed to load legend for ' + layerConfig.name + ':', legendUrl);
+        });
+
+        content.appendChild(legendImg);
+
+        legendWindow.appendChild(header);
+        legendWindow.appendChild(content);
+
+        // Make window draggable
+        var isDragging = false;
+        var dragOffset = { x: 0, y: 0 };
+
+        header.addEventListener('mousedown', function (e) {
+            isDragging = true;
+            dragOffset.x = e.clientX - legendWindow.offsetLeft;
+            dragOffset.y = e.clientY - legendWindow.offsetTop;
+            legendWindow.style.zIndex = '10001';
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (isDragging) {
+                legendWindow.style.left = (e.clientX - dragOffset.x) + 'px';
+                legendWindow.style.top = (e.clientY - dragOffset.y) + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', function () {
+            isDragging = false;
+        });
+
+        document.body.appendChild(legendWindow);
+        
+        console.log('✓ Opened legend window for: ' + layerConfig.name);
+        console.log('  Legend URL: ' + legendUrl);
     }
 
     function createControlPanel(layers) {
@@ -230,23 +367,28 @@
 
         // Add checkbox for each layer
         layers.forEach(function (layerObj, index) {
-            var label = document.createElement('label');
-            label.style.display = 'flex';
-            label.style.alignItems = 'center';
-            label.style.marginBottom = '10px';
-            label.style.cursor = 'pointer';
-            label.style.padding = '6px';
-            label.style.borderRadius = '4px';
-            label.style.transition = 'background-color 0.2s';
-            label.style.backgroundColor = index % 2 === 0 ? '#f9f9f9' : 'white';
+            var layerContainer = document.createElement('div');
+            layerContainer.style.display = 'flex';
+            layerContainer.style.alignItems = 'center';
+            layerContainer.style.marginBottom = '10px';
+            layerContainer.style.padding = '6px';
+            layerContainer.style.borderRadius = '4px';
+            layerContainer.style.transition = 'background-color 0.2s';
+            layerContainer.style.backgroundColor = index % 2 === 0 ? '#f9f9f9' : 'white';
 
-            label.addEventListener('mouseenter', function () {
+            layerContainer.addEventListener('mouseenter', function () {
                 this.style.backgroundColor = '#e3f2fd';
             });
 
-            label.addEventListener('mouseleave', function () {
+            layerContainer.addEventListener('mouseleave', function () {
                 this.style.backgroundColor = index % 2 === 0 ? '#f9f9f9' : 'white';
             });
+
+            var label = document.createElement('label');
+            label.style.display = 'flex';
+            label.style.alignItems = 'center';
+            label.style.cursor = 'pointer';
+            label.style.flex = '1';
 
             var checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -281,9 +423,45 @@
             span.style.userSelect = 'none';
             span.style.flex = '1';
 
+            // Create legend button
+            var legendBtn = document.createElement('button');
+            legendBtn.innerHTML = 'ℹ️';
+            legendBtn.title = 'Näytä selite';
+            legendBtn.style.marginLeft = '8px';
+            legendBtn.style.width = '24px';
+            legendBtn.style.height = '24px';
+            legendBtn.style.padding = '0';
+            legendBtn.style.background = '#f0f0f0';
+            legendBtn.style.border = '1px solid #ccc';
+            legendBtn.style.borderRadius = '4px';
+            legendBtn.style.cursor = 'pointer';
+            legendBtn.style.fontSize = '12px';
+            legendBtn.style.display = 'flex';
+            legendBtn.style.alignItems = 'center';
+            legendBtn.style.justifyContent = 'center';
+            legendBtn.style.transition = 'all 0.2s';
+
+            legendBtn.addEventListener('mouseenter', function () {
+                this.style.background = '#e0e0e0';
+                this.style.transform = 'scale(1.1)';
+            });
+
+            legendBtn.addEventListener('mouseleave', function () {
+                this.style.background = '#f0f0f0';
+                this.style.transform = 'scale(1)';
+            });
+
+            legendBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openLegendWindow(layerObj.config);
+            });
+
             label.appendChild(checkbox);
             label.appendChild(span);
-            panel.appendChild(label);
+            layerContainer.appendChild(label);
+            layerContainer.appendChild(legendBtn);
+            panel.appendChild(layerContainer);
         });
 
         // Add info section
