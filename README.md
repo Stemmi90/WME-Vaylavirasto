@@ -4,26 +4,29 @@ Suomen Väyläviraston WMS-tasot Waze Map Editoria varten.
 
 ## Kuvaus
 
-Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen datan WMS-tasoja, jotka auttavat kartan editoinnissa. Skripti tarjoaa helppokäyttöisen käyttöliittymän tasojen hallintaan.
+Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen datan WMS-tasoja, jotka auttavat kartan editoinnissa. Skripti tarjoaa modernin sivupaneeli-käyttöliittymän ja dynaamisen tasojen latauksen WMS GetCapabilities -pyynnön kautta.
 
 ## Ominaisuudet
 
-### Saatavilla olevat tasot:
-- **Liikennemäärät 2023** - Tietoja liikennemääristä teillä
-- **Nopeusrajoitukset** - Voimassa olevat nopeusrajoitukset
-- **Liikennemerkit** - Liikennemerkkien sijainnit
-- **Päällystetyt tiet** - Tieto teiden päällystetyypistä
-- **Talvinopeusrajoitus** - Talviaikaiset nopeusrajoitukset
-- **Nopeusrajoituspäätökset** - Viranomaispäätökset nopeusrajoituksista
+### Dynaaminen tasojen lataus:
+- **Automaattinen tasojen haku** WMS GetCapabilities -pyynnön kautta
+- **Kaikki saatavilla olevat tasot** Väyläviraston WMS-palvelusta
+- **Fallback-tasot** jos GetCapabilities epäonnistuu
+- **Reaaliaikainen tasojen tila** ja metatiedot
 
 ### Käyttöliittymä:
-- 🇫🇮 -painike kartan vasemmassa yläkulmassa
-- Vedettävä ja siirrettävä käyttöliittymä
-- Yksinkertainen checkbox-pohjainen tasojen hallinta
-- ℹ️ -painike jokaisen tason vieressä selitteen näyttämiseen
-- Kelluva selite-ikkuna WMS-legendoille
-- Ennalta määritetyt läpinäkyvyysarvot tasoille
-- **Automaattinen rate limiting -suojaus** estää palvelimen ylikuormituksen
+- **Integroitu sivupaneeli** WME:n vasemmassa sivupalkissa (🇫🇮 -välilehti)
+- **Kelluva pika-aktivointi painike** vedettävällä käyttöliittymällä
+- **Hakutoiminto** tasojen suodattamiseen
+- **Aktiiviset tasot -osio** näyttää tällä hetkellä näkyvät tasot
+- **Pika-aktivointi** usein käytettyjen tasojen nopeaan hallintaan
+- **Läpinäkyvyyssäätimet** aktiivisille tasoille
+- **Selite-ikkunat** (ℹ️ -painike) WMS-legendojen näyttämiseen
+
+### Edistyneet ominaisuudet:
+- **Automaattinen asetusten tallennus** LocalStorage-muistiin
+- **Tasojen tilan palauttaminen** sivun uudelleenlatauksen jälkeen
+- **Virheenkäsittely** ja automaattinen uudelleenyritys
 
 ## Asennus
 
@@ -33,36 +36,52 @@ Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen data
 
 ## Käyttö
 
+### Sivupaneeli (suositeltu):
 1. Avaa Waze Map Editor
-2. Odota että skripti latautuu (näet konsoli-viestejä)
-3. Klikkaa 🇫🇮 -painiketta avataksesi tasovalikon
-4. Valitse haluamasi tasot checkboxeilla
-5. Klikkaa ℹ️ -painiketta nähdäksesi tason selitteen
-6. Vedä painiketta tai selite-ikkunoita siirtääksesi niitä
+2. Odota että skripti latautuu ja hakee saatavilla olevat tasot
+3. Klikkaa **🇫🇮 -välilehteä** vasemmassa sivupalkissa
+4. **Hae tasoja** hakukentän avulla
+5. **Valitse tasot** checkboxeilla aktivoidaksesi ne
+6. **Säädä läpinäkyvyyttä** aktiivisten tasojen liukusäätimillä
+7. **Lisää pika-aktivointiin** ☆-painikkeella usein käytetyt tasot
+8. **Näytä selitteet** ℹ️-painikkeella
+
+### Kelluva pika-aktivointi:
+1. **Klikkaa 🇫🇮 -painiketta** kartalla avataksesi pika-aktivointi valikon
+2. **Valitse tasot** suoraan kelluvasta valikosta
+3. **Vedä painiketta** siirtääksesi sen haluamaasi paikkaan
+4. **Hallinnoi tasoja** sivupaneelista lisätäksesi pika-aktivointiin
 
 ## Tekniset tiedot
 
-- **Versio:** 1.5
+- **Versio:** 2.0.0
 - **Tietolähde:** Väylävirasto Avoin API
 - **WMS-palvelu:** https://avoinapi.vaylapilvi.fi/vaylatiedot/wms
 - **Koordinaattijärjestelmä:** EPSG:3857 (Web Mercator)
 - **Kuvaformaatti:** PNG (läpinäkyvä)
+- **Dynaaminen lataus:** WMS GetCapabilities v1.3.0
 - **Selitteet:** WMS GetLegendGraphic -pyyntöjen kautta
+- **Tallennustila:** LocalStorage (asetukset, aktiiviset tasot, pika-aktivointi)
 - **Rate limiting -suojaus:** Automaattinen pyyntöjen rajoitus ja uudelleenyritys
 
 ## Vianmääritys
 
 ### Tasot eivät näy:
-1. Tarkista että olet oikealla zoomitasolla
-2. Avaa selaimen kehittäjätyökalut (F12)
-3. Tarkista Network-välilehti WMS-pyyntöjen varalta
-4. Katso Console-välilehti virheviesteistä
+1. Tarkista että **🇫🇮 -välilehti** on näkyvissä sivupalkissa
+2. Varmista että tasot on **aktivoitu checkboxeilla**
+3. Tarkista **läpinäkyvyysasetukset** (eivät saa olla 0%)
+4. Avaa selaimen kehittäjätyökalut (F12) ja tarkista Console-välilehti
+
+### GetCapabilities-ongelmat:
+- Jos dynaaminen lataus epäonnistuu, skripti käyttää fallback-tasoja
+- Tarkista verkkoyhteytesi Väylävirasto-palveluun
+- CORS-rajoitukset voivat estää GetCapabilities-pyynnön
 
 ### Yleisiä ongelmia:
-- Jotkut tasot näkyvät vain tietyillä zoomitasoilla
-- Verkko-ongelmat voivat estää tasojen latautumisen
-- CORS-rajoitukset voivat aiheuttaa ongelmia
-- **Rate limiting:** Nopea panorointi/zoomaus voi aiheuttaa tilapäisiä viiveitä (v1.5 sisältää automaattisen suojauksen)
+- **Sivupaneeli ei näy:** Varmista että WME on ladannut kokonaan
+- **Asetukset katoavat:** Tarkista selaimen LocalStorage-asetukset
+- **Kelluva painike katoaa:** Päivitä sivu tai luo uusi painike sivupaneelista
+- **Rate limiting:** Nopea panorointi/zoomaus voi aiheuttaa tilapäisiä viiveitä
 
 ## Lisenssi
 
@@ -79,6 +98,18 @@ Tiedot ovat peräisin Väyläviraston avoimesta datasta:
 - [Digiroad-tietokanta](https://www.digiroad.fi/)
 
 ## Changelog
+
+### v2.0.0 - Suuri päivitys
+- **🆕 Integroitu sivupaneeli:** WME:n natiivi sivupalkki-integraatio
+- **🆕 Dynaaminen tasojen lataus:** Automaattinen WMS GetCapabilities -haku
+- **🆕 Hakutoiminto:** Tasojen suodatus nimen, abstraktin tai teknisen nimen perusteella
+- **🆕 Aktiiviset tasot -osio:** Erillinen näkymä tällä hetkellä aktiivisille tasoille
+- **🆕 Pika-aktivointi järjestelmä:** Usein käytettyjen tasojen nopea hallinta
+- **🆕 Automaattinen asetusten tallennus:** LocalStorage-pohjainen muisti
+- **🆕 Tasojen tilan palauttaminen:** Aktiiviset tasot palautetaan sivun latauksen jälkeen
+- **🆕 Läpinäkyvyyssäätimet:** Reaaliaikaiset opacity-säätimet aktiivisille tasoille
+- **🆕 Parannettu käyttöliittymä:** Modernimpi ja käyttäjäystävällisempi design
+- **🆕 Fallback-järjestelmä:** Toimii vaikka GetCapabilities epäonnistuisi
 
 ### v1.5
 - **Rate limiting -suojaus:** Automaattinen pyyntöjen rajoitus estää palvelimen ylikuormituksen
