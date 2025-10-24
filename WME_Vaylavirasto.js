@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         WME Väylävirasto
 // @namespace    https://waze.com
-// @version      1.4
-// @description  Suomen Väyläviraston WMS‑tasot Waze Map Editoria varten
+// @version      1.5
+// @description  Suomen Väyläviraston WMS‑tasot Waze Map Editoria varten (v1.5: Rate limiting protection)
 // @author       Stemmi
 // @match        https://*.waze.com/*editor*
 // @license      MIT
@@ -12,6 +12,21 @@
 
 (function () {
     'use strict';
+
+    // Debounce function to limit rapid requests
+    function debounce(func, wait) {
+        var timeout;
+        return function executedFunction() {
+            var context = this;
+            var args = arguments;
+            var later = function() {
+                timeout = null;
+                func.apply(context, args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
     // Wait for WME to load
     function init() {
@@ -86,8 +101,11 @@
             ]
         };
 
-        // Create WMS layers
+        // Create WMS layers with request throttling
         var wmsLayers = [];
+        var requestQueue = [];
+        var activeRequests = 0;
+        var maxConcurrentRequests = 3; // Limit concurrent requests per layer
 
         wmsConfig.layers.forEach(function (layerConfig) {
             try {
@@ -111,19 +129,63 @@
                         displayInLayerSwitcher: true,
                         transitionEffect: null,
                         tileOptions: {
-                            crossOriginKeyword: null
+                            crossOriginKeyword: null,
+                            maxGetUrlLength: 2048
                         },
                         singleTile: false,
-                        ratio: 1,
-                        buffer: 0,
-                        numZoomLevels: 20
+                        ratio: 1.5,
+                        buffer: 2,
+                        numZoomLevels: 20,
+                        // Rate limiting optimizations
+                        maxExtent: new OpenLayers.Bounds(-20037508, -20037508, 20037508, 20037508),
+                        tileSize: new OpenLayers.Size(512, 512), // Larger tiles = fewer requests
+                        serverResolutions: null,
+                        // Add request throttling
+                        requestEncoding: 'REST',
+                        gutter: 15
                     }
                 );
 
-                // Add event listener for tile load errors
+                // Add request throttling and error handling
+                var originalGetURL = wmsLayer.getURL;
+                wmsLayer.getURL = function(bounds) {
+                    // Add small delay between requests to prevent rate limiting
+                    var self = this;
+                    var args = arguments;
+                    
+                    if (activeRequests >= maxConcurrentRequests) {
+                        // Queue the request
+                        requestQueue.push(function() {
+                            return originalGetURL.apply(self, args);
+                        });
+                        return null;
+                    }
+                    
+                    activeRequests++;
+                    setTimeout(function() {
+                        activeRequests--;
+                        // Process queued requests
+                        if (requestQueue.length > 0) {
+                            var nextRequest = requestQueue.shift();
+                            nextRequest();
+                        }
+                    }, 100); // 100ms delay between requests
+                    
+                    return originalGetURL.apply(this, args);
+                };
+
+                // Add event listener for tile load errors with retry logic
                 wmsLayer.events.register('tileerror', wmsLayer, function (evt) {
                     console.warn('Tile load error for ' + layerConfig.name + ':', evt);
                     console.warn('URL that failed:', evt.url);
+                    
+                    // Check if it's a rate limiting error (HTTP 429 or 503)
+                    if (evt.url && (evt.url.includes('429') || evt.url.includes('503'))) {
+                        console.warn('⚠️ Rate limiting detected for ' + layerConfig.name + '. Retrying in 2 seconds...');
+                        setTimeout(function() {
+                            wmsLayer.redraw(true);
+                        }, 2000);
+                    }
                 });
 
                 // Add event listener for successful tile loads
@@ -143,10 +205,39 @@
             }
         });
 
+        // Add map event listeners to handle rapid panning/zooming
+        var isMapMoving = false;
+        var mapMoveTimeout;
+        
+        // Debounced function to re-enable layer updates after map stops moving
+        var enableLayerUpdates = debounce(function() {
+            isMapMoving = false;
+            console.log('Map movement stopped, re-enabling layer updates');
+            wmsLayers.forEach(function(layerObj) {
+                if (layerObj.layer.visibility) {
+                    layerObj.layer.redraw(true);
+                }
+            });
+        }, 500); // Wait 500ms after map stops moving
+        
+        // Listen for map movement events
+        map.events.register('movestart', map, function() {
+            isMapMoving = true;
+            console.log('Map movement detected, throttling layer requests');
+        });
+        
+        map.events.register('moveend', map, function() {
+            enableLayerUpdates();
+        });
+        
+        map.events.register('zoomend', map, function() {
+            enableLayerUpdates();
+        });
+
         // Create UI panel for layer control
         createControlPanel(wmsLayers);
 
-        console.log('WME Väylävirasto Layers: Successfully loaded ' + wmsLayers.length + ' layers');
+        console.log('WME Väylävirasto Layers: Successfully loaded ' + wmsLayers.length + ' layers with rate limiting protection');
 
         // Add help message
         console.log('%cℹ️ USAGE TIPS:', 'color: blue; font-weight: bold;');
