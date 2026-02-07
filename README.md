@@ -8,25 +8,14 @@ Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen data
 
 ## Ominaisuudet
 
-### Dynaaminen tasojen lataus:
-- **Automaattinen tasojen haku** WMS GetCapabilities -pyynnön kautta
-- **Kaikki saatavilla olevat tasot** Väyläviraston WMS-palvelusta
-- **Fallback-tasot** jos GetCapabilities epäonnistuu
-- **Reaaliaikainen tasojen tila** ja metatiedot
-
-### Käyttöliittymä:
 - **Integroitu sivupaneeli** WME:n vasemmassa sivupalkissa (🇫🇮 -välilehti)
-- **Kelluva pika-aktivointi painike** vedettävällä käyttöliittymällä
-- **Hakutoiminto** tasojen suodattamiseen
-- **Aktiiviset tasot -osio** näyttää tällä hetkellä näkyvät tasot
-- **Pika-aktivointi** usein käytettyjen tasojen nopeaan hallintaan
+- **Dynaaminen tasojen lataus** automaattisesti WMS GetCapabilities -pyynnön kautta
+- **Suodatus** tasojen suodatus toimittajan mukaan
+- **Hakutoiminto** tasojen etsimiseen nimellä
+- **Pika-aktivointi** usein käytettyjen tasojen nopeaan hallintaan (kelluva painike)
 - **Läpinäkyvyyssäätimet** aktiivisille tasoille
-- **Selite-ikkunat** (ℹ️ -painike) WMS-legendojen näyttämiseen
-
-### Edistyneet ominaisuudet:
-- **Automaattinen asetusten tallennus** LocalStorage-muistiin
-- **Tasojen tilan palauttaminen** sivun uudelleenlatauksen jälkeen
-- **Virheenkäsittely** ja automaattinen uudelleenyritys
+- **Selite-ikkunat** (ℹ️) WMS-legendojen näyttämiseen
+- **Automaattinen tallennus** asetukset ja aktiiviset tasot säilyvät sivun latauksen jälkeen
 
 ## Asennus
 
@@ -54,7 +43,7 @@ Tämä userscript lisää Waze Map Editoriin Suomen Väyläviraston avoimen data
 
 ## Tekniset tiedot
 
-- **Versio:** 2.0.0
+- **Versio:** 2.1.1
 - **Tietolähde:** Väylävirasto Avoin API
 - **WMS-palvelu:** https://avoinapi.vaylapilvi.fi/vaylatiedot/wms
 - **Koordinaattijärjestelmä:** EPSG:3857 (Web Mercator)
@@ -98,6 +87,11 @@ Tiedot ovat peräisin Väyläviraston avoimesta datasta:
 - [Digiroad-tietokanta](https://www.digiroad.fi/)
 
 ## Changelog
+
+### v2.1.1
+- **🆕 Oletustasot uudelle käyttäjälle:** Ennalta määritellyt suositustasot
+- **🆕 Suodatus tasoille:** Tasojen suodatus toimittajan mukaan
+- **🔧 Korjauksia:** Pieniä parannuksia ja bugikorjauksia
 
 ### v2.0.0 - Suuri päivitys
 - **🆕 Integroitu sivupaneeli:** WME:n natiivi sivupalkki-integraatio
