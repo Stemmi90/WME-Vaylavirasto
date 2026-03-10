@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Väylävirasto
 // @namespace    https://waze.com
-// @version      2.3.2
+// @version      2.3.3
 // @description  Suomen Väyläviraston WMS- ja WFS-tasot Waze Map Editoria varten
 // @author       Stemmi
 // @match        https://*.waze.com/*editor*
@@ -11,11 +11,23 @@
 // @license      MIT
 // @run-at       document-idle
 // @require      https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js
+// @require      https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
 // ==/UserScript==
 
 (function () {
     'use strict';
 
+
+
+    // Update Notification Settings
+    const SHOW_UPDATE_ALERT = true;
+    const SCRIPT_VERSION = GM_info.script.version;
+    const SCRIPT_DOWNLOAD_URL = 'https://greasyfork.org/fi/scripts/553221-wme-v%C3%A4yl%C3%A4virasto';
+    const SCRIPT_VERSION_CHANGES = [
+        'Lisätty WazeWrap ja päivitysilmoitukset'
+    ];
+
+    // Global state
     let availableLayers = [];
     let activeLayers = new Map(); // WMS layers
     let activeWfsLayers = new Map(); // WFS vector layers
@@ -48,12 +60,14 @@
     const MAX_CACHED_AREAS = 10;              // Maximum areas to cache (per context)
     const featureAreaCache = new Map();       // { areaKey: { timestamp, features: Map, layers: Set } }
 
+    // Configuration
     const WMS_CONFIG = {
         baseUrl: 'https://avoinapi.vaylapilvi.fi/vaylatiedot/wms',
         version: '1.3.0',
         crs: 'EPSG:3857'
     };
 
+    // WFS Configuration
     const WFS_CONFIG = {
         baseUrl: 'https://avoinapi.vaylapilvi.fi/vaylatiedot/ows',
         version: '2.0.0',
@@ -101,15 +115,18 @@
         }
     ];
 
+    // LocalStorage keys
     const STORAGE_KEYS = {
         quickAccess: 'wme-vaylavirasto-quickaccess',
         activeLayers: 'wme-vaylavirasto-active',
         activeWfsLayers: 'wme-vaylavirasto-active-wfs',
         layerOpacity: 'wme-vaylavirasto-opacity',
         buttonPosition: 'wme-vaylavirasto-position',
-        initialized: 'wme-vaylavirasto-initialized'
+        initialized: 'wme-vaylavirasto-initialized',
+        lastVersion: 'wme-vaylavirasto-last-version'
     };
 
+    // Default quick-access layers for new users
     const DEFAULT_QUICK_ACCESS_LAYERS = [
         'digiroad:dr_leveys',              // Road width
         'digiroad:dr_nopeusrajoitus',      // Speed limits
@@ -118,6 +135,7 @@
         'digiroad:tiekunnalliset_yksityistiet' // Private roads
     ];
 
+    // Helper function to create elements
     function createElem(tag, attrs = {}) {
         const elem = document.createElement(tag);
         Object.entries(attrs).forEach(([key, value]) => {
@@ -134,6 +152,7 @@
         return elem;
     }
 
+    // Debounced save preferences to localStorage
     let saveTimeout;
     function savePreferences() {
         clearTimeout(saveTimeout);
@@ -170,11 +189,38 @@
                 localStorage.setItem(STORAGE_KEYS.activeWfsLayers, JSON.stringify(Array.from(activeWfsLayers.keys())));
 
             } catch (error) {
-                console.warn('WME Väylävirasto: Failed to save preferences:', error);
             }
         }, 500); // Debounce for 500ms
     }
 
+    function showUpdateAlert() {
+        if (!SHOW_UPDATE_ALERT) return;
+
+        const lastVersion = localStorage.getItem(STORAGE_KEYS.lastVersion);
+        if (SCRIPT_VERSION === lastVersion) return;
+        let releaseNotes = "<p>Mitä uutta:</p>";
+        if (SCRIPT_VERSION_CHANGES.length > 0) {
+            releaseNotes += '<ul>';
+            SCRIPT_VERSION_CHANGES.forEach(change => {
+                releaseNotes += `<li>${change}</li>`;
+            });
+            releaseNotes += '</ul>';
+        } else {
+            releaseNotes += '<ul><li>Bug fixes and improvements.</li></ul>';
+        }
+        if (typeof WazeWrap !== 'undefined' && WazeWrap.Interface && WazeWrap.Interface.ShowScriptUpdate) {
+            WazeWrap.Interface.ShowScriptUpdate(
+                GM_info.script.name,
+                SCRIPT_VERSION,
+                releaseNotes,
+                SCRIPT_DOWNLOAD_URL
+            );
+        } else {
+        }
+        localStorage.setItem(STORAGE_KEYS.lastVersion, SCRIPT_VERSION);
+    }
+
+    // Load preferences from localStorage
     function loadPreferences() {
         try {
             // Check if user has used the script before
@@ -187,20 +233,17 @@
                 quickAccessLayers = new Set(quickAccessArray);
             } else if (!hasUsedBefore) {
                 // First time user - add default quick-access layers
-
                 DEFAULT_QUICK_ACCESS_LAYERS.forEach(layerName => {
                     // Only add if layer exists in available layers
                     if (availableLayers.some(l => l.name === layerName)) {
                         quickAccessLayers.add(layerName);
                     } else {
-                        console.warn(`  ✗ Default layer not found: ${layerName}`);
                     }
                 });
 
                 // Mark as initialized and save
                 localStorage.setItem(STORAGE_KEYS.initialized, 'true');
                 savePreferences();
-
             }
             // If hasUsedBefore is true but no saved quick access, user intentionally cleared them - don't re-add
 
@@ -248,10 +291,10 @@
             }
 
         } catch (error) {
-            console.warn('WME Väylävirasto: Failed to load preferences:', error);
         }
     }
 
+    // Load button position
     function loadButtonPosition() {
         try {
             const savedPosition = localStorage.getItem(STORAGE_KEYS.buttonPosition);
@@ -267,10 +310,10 @@
                 }
             }
         } catch (error) {
-            console.warn('WME Väylävirasto: Failed to load button position:', error);
         }
     }
 
+    // Load WFS tooltip mode preference
     function loadWfsModePreference() {
         try {
             const savedWfsMode = localStorage.getItem('wme-vaylavirasto-wfs-mode');
@@ -278,10 +321,10 @@
                 wfsTooltipMode = JSON.parse(savedWfsMode);
             }
         } catch (error) {
-            console.warn('WME Väylävirasto: Failed to load WFS mode preference:', error);
         }
     }
 
+    // Fetch available layers from WMS GetCapabilities
     async function fetchWMSCapabilities() {
         try {
             const capabilitiesUrl = `${WMS_CONFIG.baseUrl}?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=${WMS_CONFIG.version}`;
@@ -313,7 +356,6 @@
             }
 
         } catch (error) {
-            console.error('WME Väylävirasto: Failed to fetch capabilities:', error);
             // Fallback to hardcoded layers if fetch fails
             availableLayers = getDefaultLayers();
             loadPreferences();
@@ -322,6 +364,7 @@
         }
     }
 
+    // Parse capabilities XML
     function parseCapabilities(xmlText) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
@@ -346,6 +389,7 @@
             return null;
         }).filter(Boolean);
 
+
         // Load saved preferences
         loadPreferences();
 
@@ -353,6 +397,7 @@
         initializeUI();
     }
 
+    // Fallback layers if GetCapabilities fails
     function getDefaultLayers() {
         return [
             {
@@ -379,11 +424,13 @@
         ];
     }
 
+    // Extract provider from layer name (format: "provider:specific_layer")
     function getProvider(layerName) {
         const parts = layerName.split(':');
         return parts.length > 1 ? parts[0] : 'Other';
     }
 
+    // Get unique list of providers from available layers
     function getUniqueProviders() {
         const providers = new Set();
         availableLayers.forEach(layer => {
@@ -393,6 +440,7 @@
         return Array.from(providers).sort();
     }
 
+    // Populate provider filter dropdown with available providers
     function populateProviderFilter() {
         if (!sidebarPanel || !sidebarPanel.providerFilter) {
             return;
@@ -400,10 +448,12 @@
 
         const providerFilter = sidebarPanel.providerFilter;
 
+        // Clear existing options (keep the first "All providers" option)
         while (providerFilter.options.length > 1) {
             providerFilter.remove(1);
         }
 
+        // Add provider options dynamically
         const providers = getUniqueProviders();
         providers.forEach(provider => {
             const option = createElem('option', {
@@ -458,11 +508,12 @@
                 document.body.appendChild(tooltipElement);
             }
         } catch (error) {
-            console.error('WME Väylävirasto: Failed to create tooltip element:', error);
         }
     }
 
+    // Initialize UI components
     function initializeUI() {
+        // SDK: wme-ready event is already handled in initScript()
         // No need to check W.userscripts.state.isReady
         createSidebarPanel();
         createFloatingButton();
@@ -471,28 +522,28 @@
         createTooltipElement();
     }
 
+    // Create sidebar panel using SDK
     async function createSidebarPanel() {
         if (!wmeSDK) {
-            console.error('WME Väylävirasto: SDK not initialized');
             return;
         }
 
+        // SDK: Use Promise-based API, no need for waitForElementConnected
         let tabLabel, tabPane;
 
         try {
+            // SDK: registerScriptTab() returns a Promise that resolves when elements are in DOM
             const result = await wmeSDK.Sidebar.registerScriptTab();
             tabLabel = result.tabLabel;
             tabPane = result.tabPane;
 
             if (!tabLabel || !tabPane) {
-                console.error('WME Väylävirasto: tabLabel or tabPane is undefined!');
                 return;
             }
 
             tabLabel.textContent = '🇫🇮';
             tabLabel.title = 'Väylävirasto WMS + WFS Layers';
         } catch (error) {
-            console.error('WME Väylävirasto: Failed to register sidebar tab:', error);
             return;
         }
 
@@ -539,6 +590,7 @@
         providerFilter.appendChild(allOption);
 
         // Provider options will be added after layers are loaded
+        // (see populateProviderFilter() function)
 
         // Handle filter change
         providerFilter.addEventListener('change', (e) => {
@@ -551,6 +603,7 @@
         divRoot.appendChild(filterContainer);
 
         // Store providerFilter in sidebarPanel for later refresh
+        // (will be populated after layers are loaded)
 
         // Active layers section header row (with WFS mode toggle)
         const activeLayersHeaderRow = createElem('div', {
@@ -573,6 +626,7 @@
             wfsTooltipMode = !wfsTooltipMode;
             updateWfsModeButton();
 
+            // Hide tooltip if mode is disabled
             if (!wfsTooltipMode) {
                 hideRoadNameTooltip();
             }
@@ -635,12 +689,12 @@
         try {
             tabPane.appendChild(divRoot);
         } catch (appendError) {
-            console.error('WME Väylävirasto: FAILED to append divRoot to tabPane:', appendError);
             return;
         }
 
         tabPane.id = 'sidepanel-vaylavirasto';
 
+        // SDK: No need for waitForElementConnected - SDK handles it automatically
         // The Promise from registerScriptTab() resolves only after elements are in DOM
 
         sidebarPanel = {
@@ -661,6 +715,7 @@
         populateProviderFilter();
     }
 
+    // Setup sidebar event listeners
     function setupSidebarEvents() {
         // Search functionality
         sidebarPanel.searchInput.addEventListener('input', (e) => {
@@ -669,6 +724,7 @@
         });
     }
 
+    // Render layer list with optional search filter and provider filter
     function renderLayerList(searchTerm = '') {
         if (!sidebarPanel) {
             return;
@@ -737,9 +793,9 @@
         updateFloatingButton(document.getElementById('vayla-floating-panel'));
     }
 
+    // Open legend window for a layer
     function openLegendWindow(layerConfig) {
         if (!layerConfig || !layerConfig.name) {
-            console.warn('Invalid layer config for legend window');
             return;
         }
 
@@ -819,6 +875,7 @@
             this.style.background = 'none';
         });
 
+        // Memory leak fix: Store handler references and remove on close
         let mouseMoveHandler = null;
         let mouseUpHandler = null;
 
@@ -861,7 +918,6 @@
         legendImg.addEventListener('error', function () {
             loadingText.textContent = 'Selitettä ei voitu ladata';
             loadingText.style.color = '#d32f2f';
-            console.warn('Failed to load legend for ' + layerConfig.title + ':', legendUrl);
         });
 
         content.appendChild(legendImg);
@@ -897,6 +953,7 @@
         document.body.appendChild(legendWindow);
     }
 
+    // Create individual layer item
     function createLayerItem(layer, index, isQuickAccess, isActiveSection = false) {
         // Check WMS or WFS active state depending on mode
         const isActive = wfsTooltipMode ? activeWfsLayers.has(layer.name) : activeLayers.has(layer.name);
@@ -941,7 +998,6 @@
 
                 // If neither was active, sync checkbox to actual state
                 if (!isWmsActive && !isWfsActive) {
-                    console.warn(`WME Väylävirasto: Layer ${layer.name} was not active`);
                 }
             } else {
                 // Activating - use WFS mode if enabled and layer supports it
@@ -1180,6 +1236,7 @@
         }
     }
 
+    // Toggle layer visibility
     function toggleLayer(layerConfig, visible) {
         if (visible && !activeLayers.has(layerConfig.name)) {
             // Add layer
@@ -1190,7 +1247,6 @@
                     activeLayers.set(layerConfig.name, wmsLayer);
                     layerConfig.visible = true;
                 } catch (error) {
-                    console.error(`WME Väylävirasto: Failed to add layer ${layerConfig.title}:`, error);
                 }
             }
         } else if (!visible && activeLayers.has(layerConfig.name)) {
@@ -1201,7 +1257,6 @@
                 activeLayers.delete(layerConfig.name);
                 layerConfig.visible = false;
             } catch (error) {
-                console.error(`WME Väylävirasto: Failed to remove layer ${layerConfig.title}:`, error);
             }
         }
 
@@ -1215,6 +1270,7 @@
         }
     }
 
+    // Create OpenLayers WMS layer
     function createWMSLayer(layerConfig) {
         try {
             const wmsLayer = new OpenLayers.Layer.WMS(
@@ -1250,11 +1306,11 @@
 
             return wmsLayer;
         } catch (error) {
-            console.error(`Failed to create layer ${layerConfig.title}:`, error);
             return null;
         }
     }
 
+    // Toggle quick access for layer
     function toggleQuickAccess(layer) {
         if (quickAccessLayers.has(layer.name)) {
             quickAccessLayers.delete(layer.name);
@@ -1265,6 +1321,7 @@
         renderLayerList(sidebarPanel.searchInput.value);
     }
 
+    // Create floating button
     function createFloatingButton() {
         // Remove existing button and panel
         if (floatingButton) {
@@ -1332,6 +1389,7 @@
         loadButtonPosition();
     }
 
+    // Update floating button content
     function updateFloatingButton(floatingPanel) {
         if (!floatingButton || !floatingPanel) return;
 
@@ -1513,8 +1571,10 @@
         floatingPanel.appendChild(infoDiv);
     }
 
+    // Setup floating button drag functionality
     function setupFloatingButtonEvents(floatingPanel) {
         let isDragging = false;
+        // Memory leak fix: Track handler references
         let mouseMoveHandler = null;
         let mouseUpHandler = null;
 
@@ -1578,6 +1638,7 @@
             mouseUpHandler = function () {
                 document.removeEventListener('mousemove', mouseMoveHandler);
                 document.removeEventListener('mouseup', mouseUpHandler);
+                // Memory leak fix: Null out handler references
                 mouseMoveHandler = null;
                 mouseUpHandler = null;
 
@@ -1621,7 +1682,6 @@
             // Return bbox string for WFS: minX,minY,maxX,maxY,urn:ogc:def:crs:EPSG::3067
             return `${min3067[0]},${min3067[1]},${max3067[0]},${max3067[1]},urn:ogc:def:crs:EPSG::3067`;
         } catch (error) {
-            console.error('WME Väylävirasto: Failed to get WFS BBOX:', error);
             return null;
         }
     }
@@ -1674,18 +1734,15 @@
                                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                                 }
                             } catch (error) {
-                                console.error('WME Väylävirasto: Failed to parse WFS capabilities:', error);
                                 reject(error);
                             }
                         },
                         onerror: function () {
                             const error = new Error('Network error fetching WFS GetCapabilities');
-                            console.error('WME Väylävirasto:', error.message);
                             reject(error);
                         },
                         ontimeout: function () {
                             const error = new Error('Timeout fetching WFS GetCapabilities');
-                            console.error('WME Väylävirasto:', error.message);
                             reject(error);
                         }
                     });
@@ -1706,7 +1763,6 @@
             }
 
         } catch (error) {
-            console.error('WME Väylävirasto: Failed to fetch WFS capabilities:', error);
             // Fallback to hardcoded layers if fetch fails
             useFallbackWFSLayers();
         }
@@ -1728,7 +1784,6 @@
             const featureTypes = xmlDoc.querySelectorAll('FeatureType');
 
             if (featureTypes.length === 0) {
-                console.warn('WME Väylävirasto: No FeatureType elements found in WFS GetCapabilities');
                 useFallbackWFSLayers();
                 return;
             }
@@ -1799,13 +1854,13 @@
             // Re-render UI if already initialized
             if (sidebarPanel) {
                 renderLayerList(sidebarPanel.searchInput.value);
-                populateProviderFilter();
+                populateProviderFilter(); // Refresh provider dropdown with new WFS layers
             }
 
+            // Load WFS tooltip mode preference
             loadWfsModePreference();
 
         } catch (error) {
-            console.error('WME Väylävirasto: Failed to parse WFS GetCapabilities:', error);
             useFallbackWFSLayers();
         }
     }
@@ -1815,7 +1870,6 @@
      * Ensures script continues to function even if API is temporarily unavailable
      */
     function useFallbackWFSLayers() {
-
         // Clone fallback layers to avoid reference issues
         availableLayers = FALLBACK_WFS_LAYERS.map(layer => ({...layer}));
 
@@ -1896,7 +1950,6 @@
      */
     function transformCoordinatesRecursive(coords, geometryType) {
         if (typeof proj4 === 'undefined') {
-            console.warn('WME Väylävirasto: proj4js not available, skipping coordinate transform');
             return coords;
         }
 
@@ -1926,7 +1979,6 @@
                 return coords.map(polygon => polygon.map(ring => ring.map(transformPoint)));
 
             default:
-                console.warn('WME Väylävirasto: Unknown geometry type:', geometryType);
                 return coords;
         }
     }
@@ -2059,7 +2111,6 @@
      * @returns {OpenLayers.Layer.Vector|null} Vector layer or null if failed
      */
     function createWfsVectorLayer(layerConfig, geoJson) {
-
         // Create vector layer with unique name
         const vectorLayer = new OpenLayers.Layer.Vector(
             `Väylävirasto: ${layerConfig.title} (WFS)`,
@@ -2076,7 +2127,6 @@
         const features = [];
 
         if (!geoJson.features || geoJson.features.length === 0) {
-            console.warn('WME Väylävirasto: No features to add to layer');
             return null;
         }
 
@@ -2148,7 +2198,6 @@
                         break;
 
                     default:
-                        console.warn('  Unknown geometry type:', geomType);
                         return;
                 }
 
@@ -2157,30 +2206,20 @@
                     features.push(feature);
                 }
             } catch (e) {
-                console.error('  Error creating feature', index, ':', e);
             }
         });
 
+
         if (features.length === 0) {
-            console.warn('WME Väylävirasto: No features to add to layer');
             return null;
         }
 
         // Add features to layer
         vectorLayer.addFeatures(features);
 
-        // Log geometry types for verification
-        const geometryTypes = new Set();
-        features.forEach(feature => {
-            if (feature.geometry && feature.geometry.CLASS_NAME) {
-                geometryTypes.add(feature.geometry.CLASS_NAME);
-            }
-        });
-        if (geometryTypes.size > 0) {
-        }
-
         // Add layer to map
         W.map.getOLMap().addLayer(vectorLayer);
+
 
         return vectorLayer;
     }
@@ -2207,8 +2246,6 @@
 
             // Build URL using existing buildWfsUrl()
             const url = buildWfsUrl(layerName, bbox, count || WFS_CONFIG.defaultCount);
-
-            // Log request
 
             // Use GM_xmlhttpRequest for CORS-enabled requests
             if (typeof GM_xmlhttpRequest !== 'undefined') {
@@ -2263,13 +2300,11 @@
     function validateWFSGeoJSON(data) {
         // Check if data exists
         if (!data || typeof data !== 'object') {
-            console.warn('WME Väylävirasto: Invalid WFS response - not an object');
             return { features: [] };
         }
 
         // Check if features array exists
         if (!data.features || !Array.isArray(data.features)) {
-            console.warn('WME Väylävirasto: Invalid WFS response - no features array');
             return { features: [] };
         }
 
@@ -2314,13 +2349,11 @@
                         activeWfsLayers.set(layerConfig.name, vectorLayer);
                     } else {
                         // Layer creation failed - uncheck checkbox
-                        console.warn('WME Väylävirasto: Failed to create vector layer for', layerConfig.name);
                         updateCheckboxState(layerConfig.name, false);
                         layerConfig.visible = false;
                     }
                 })
                 .catch(error => {
-                    console.error('WME Väylävirasto: Failed to activate WFS layer:', error);
                     // Uncheck the checkbox since activation failed
                     updateCheckboxState(layerConfig.name, false);
                     layerConfig.visible = false;
@@ -2487,23 +2520,33 @@
      * @param {number} distance - Distance to feature in meters (optional)
      */
     function displayRoadNameTooltip(roadName, layerName, featureId, lon, lat, distance = null) {
+        // Guard: ensure tooltip element exists
         if (!tooltipElement) {
             return;
         }
 
+        // Clear existing content
         while (tooltipElement.firstChild) {
             tooltipElement.removeChild(tooltipElement.firstChild);
         }
 
+        // Single row tooltip: just the road name (no distance, no layer name)
         const strong = document.createElement('strong');
         strong.textContent = roadName;
         tooltipElement.appendChild(strong);
 
+        // Get cursor pixel position from lon/lat
         const olMap = W.map.getOLMap();
+
+        // CRITICAL: Convert EPSG:4326 (WGS84) to EPSG:3857 (Web Mercator) first
+        // getPixelFromLonLat() expects coordinates in the map's projection
         const point3857 = proj4('EPSG:4326', 'EPSG:3857', [lon, lat]);
         const lonLat3857 = new OpenLayers.LonLat(point3857[0], point3857[1]);
         const pixel = olMap.getPixelFromLonLat(lonLat3857);
 
+        // Position tooltip
+        // If tooltip is in map container, use pixel coordinates directly
+        // Otherwise, add map container offset (for fallback to body)
         if (olMap.div.contains(tooltipElement)) {
             positionTooltip(pixel.x, pixel.y);
         } else {
@@ -2511,10 +2554,13 @@
             positionTooltip(pixel.x + mapRect.left, pixel.y + mapRect.top);
         }
 
+        // Show tooltip with fade-in
         tooltipElement.style.display = 'block';
+        // Trigger reflow to ensure transition works
         void tooltipElement.offsetWidth;
         tooltipElement.style.opacity = '1';
 
+        // Update last hover tracking
         lastHoverAreaKey = getAreaKey(lon, lat);
         lastHoverTime = Date.now();
     }
@@ -2568,7 +2614,6 @@
         olMap.events.register('zoomend', null, () => {
             hideRoadNameTooltip();
         });
-
     }
 
     /**
@@ -2631,7 +2676,6 @@
 
         // Validate input coordinates
         if (!isFinite(lon) || !isFinite(lat)) {
-            console.warn('WME Väylävirasto: Invalid coordinates:', lon, lat);
             return;
         }
 
@@ -2640,7 +2684,6 @@
 
         // Validate transformed coordinates
         if (!isFinite(point3857[0]) || !isFinite(point3857[1])) {
-            console.warn('WME Väylävirasto: Coordinate transformation failed:', point3857);
             return;
         }
 
@@ -2751,7 +2794,6 @@
                                 features.push(feature);
                             }
                         } catch (e) {
-                            console.error('  Error creating feature:', e);
                         }
                     });
 
@@ -2762,7 +2804,6 @@
                     }
                 })
                 .catch(error => {
-                    console.error('WME Väylävirasto: Area fetch failed for', layerName, ':', error);
                 });
         });
     }
@@ -2866,7 +2907,6 @@
                 evictOldestArea();
             }
         }
-
     }
 
     /**
@@ -2882,7 +2922,6 @@
         const toRemove = sorted.slice(0, featureAreaCache.size - MAX_CACHED_AREAS);
 
         toRemove.forEach(([key, cached]) => {
-
             // Remove features from map layers (memory cleanup)
             cached.features.forEach((features, layerName) => {
                 const vectorLayer = activeWfsLayers.get(layerName);
@@ -2890,7 +2929,6 @@
                     try {
                         vectorLayer.removeFeatures(features);
                     } catch (e) {
-                        console.warn('  Failed to remove features from', layerName, ':', e);
                     }
                 }
             });
@@ -2898,7 +2936,6 @@
             // Delete cache entry
             featureAreaCache.delete(key);
         });
-
     }
 
     /**
@@ -2926,13 +2963,12 @@
 
                 if (featuresToAdd.length > 0) {
                     vectorLayer.addFeatures(featuresToAdd);
-                } else {
                 }
             }
         });
     }
 
-    
+
     /**
      * Initialize script using WME SDK
      *
@@ -2943,10 +2979,8 @@
      * 4. Initialize UI and fetch WMS capabilities
      */
     function initScript() {
-
         // Check if getWmeSdk is available
         if (typeof getWmeSdk === 'undefined') {
-            console.error('WME Väylävirasto: WME SDK not available. This script requires WME with SDK support.');
             return;
         }
 
@@ -2956,36 +2990,59 @@
             scriptName: 'WME Väylävirasto'
         });
 
+        // SDK: Wait for wme-ready event using SDK Events
         wmeSDK.Events.once({ eventName: 'wme-ready' })
             .then(() => {
-                // Initialize UI components first
-                initializeUI();
-                // Fetch WMS capabilities first (legacy layers)
-                fetchWMSCapabilities().then(() => {
-                    // After WMS completes, fetch WFS capabilities (vector layers with attributes)
-                    // WFS layers will be merged into availableLayers
-                    fetchWFSCapabilities().catch((error) => {
-                        console.error('WME Väylävirasto: Failed to fetch WFS capabilities during init:', error);
-                        // Continue anyway - WMS layers are already loaded
-                    });
-                }).catch((error) => {
-                    console.error('WME Väylävirasto: Failed to fetch WMS capabilities:', error);
-                });
+                // Wait for WazeWrap to be ready before showing update notification
+                waitForWazeWrap(0);
             })
             .catch((error) => {
-                console.error('WME Väylävirasto: Failed to wait for wme-ready:', error);
             });
+    }
+
+    // Poll for WazeWrap.Ready to ensure it's loaded before showing notifications
+    // Max 40 retries * 250ms = 10 second timeout
+    function waitForWazeWrap(retryCount) {
+        const MAX_RETRIES = 40;
+
+        if (typeof WazeWrap !== 'undefined' && WazeWrap.Ready) {
+            // Check for update notification FIRST (before UI)
+            showUpdateAlert();
+
+            // Initialize UI components
+            initializeUI();
+
+            // Fetch WMS capabilities first (legacy layers)
+            fetchWMSCapabilities().then(() => {
+                // After WMS completes, fetch WFS capabilities (vector layers with attributes)
+                // WFS layers will be merged into availableLayers
+                fetchWFSCapabilities().catch((error) => {
+                    // Continue anyway - WMS layers are already loaded
+                });
+            }).catch((error) => {
+            });
+        } else if (retryCount < MAX_RETRIES) {
+            // WazeWrap not ready yet, retry after delay
+            retryCount++;
+            setTimeout(() => waitForWazeWrap(retryCount), 250);
+        } else {
+            // WazeWrap failed to load, continue without it
+            // Initialize anyway - script should work without WazeWrap
+            initializeUI();
+            fetchWMSCapabilities().catch((error) => {
+            });
+        }
     }
 
    
     // Start initialization using SDK
+    // Note: We use unsafeWindow instead of window because we have @grant GM_xmlhttpRequest
+    // See: https://waze-sdk-docs/index.html#troubleshooting
 
+    // SDK: Use unsafeWindow.SDK_INITIALIZED since we have @grant directives
     if (typeof unsafeWindow !== 'undefined' && unsafeWindow.SDK_INITIALIZED) {
         unsafeWindow.SDK_INITIALIZED.then(initScript).catch((error) => {
-            console.error('WME Väylävirasto: SDK initialization failed:', error);
         });
     } else {
-        console.error('WME Väylävirasto: SDK_INITIALIZED not found on unsafeWindow. WME SDK may not be available.');
     }
-
 })();
