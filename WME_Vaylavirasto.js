@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WME Väylävirasto
 // @namespace    https://waze.com
-// @version      2.3.3
+// @version      2.3.4
 // @description  Suomen Väyläviraston WMS- ja WFS-tasot Waze Map Editoria varten
 // @author       Stemmi
 // @match        https://*.waze.com/*editor*
@@ -24,7 +24,7 @@
     const SCRIPT_VERSION = GM_info.script.version;
     const SCRIPT_DOWNLOAD_URL = 'https://greasyfork.org/fi/scripts/553221-wme-v%C3%A4yl%C3%A4virasto';
     const SCRIPT_VERSION_CHANGES = [
-        'Lisätty WazeWrap ja päivitysilmoitukset'
+        'Korjattu kelluvan painikkeen klikkauksen tunnistus (drag threshold)'
     ];
 
     // Global state
@@ -558,7 +558,7 @@
 
         const version = createElem('div', {
             style: 'margin: 0 0 8px 0; font-size: 10px; color: #999;',
-            textContent: 'Version 2.3.2'
+            textContent: 'Version 2.3.4'
         });
         divRoot.appendChild(version);
 
@@ -1574,6 +1574,9 @@
     // Setup floating button drag functionality
     function setupFloatingButtonEvents(floatingPanel) {
         let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        const DRAG_THRESHOLD = 5; // Minimum pixels to consider it a drag (fixes click detection)
         // Memory leak fix: Track handler references
         let mouseMoveHandler = null;
         let mouseUpHandler = null;
@@ -1615,11 +1618,20 @@
         floatingButton.addEventListener('mousedown', function (e) {
             e.preventDefault();
             isDragging = false;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
 
             const shiftX = e.clientX - floatingButton.getBoundingClientRect().left;
             const shiftY = e.clientY - floatingButton.getBoundingClientRect().top;
 
             function moveAt(pageX, pageY) {
+                // Check if mouse moved beyond threshold before considering it a drag
+                const dx = pageX - dragStartX;
+                const dy = pageY - dragStartY;
+                if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) {
+                    return; // Not a drag yet, don't move
+                }
+                
                 isDragging = true;
                 floatingButton.style.left = (pageX - shiftX) + 'px';
                 floatingButton.style.top = (pageY - shiftY) + 'px';
